@@ -1249,25 +1249,19 @@
 			return !this.is_parent(obj);
 		},
 		/**
-		 * loads a node (fetches its children using the `core.data` setting). Multiple nodes can be passed to by using an array.
-		 * @name load_node(obj [, callback])
+		 * unloads a node (removes its children and allow them to be loaded using the `core.data` setting later).
+		 * @name unload_node(obj [, callback])
 		 * @param  {mixed} obj
-		 * @param  {function} callback a function to be executed once loading is complete, the function is executed in the instance's scope and receives two arguments - the node and a boolean status
+		 * @param  {function} callback a function to be executed once unloading is complete, the function is executed in the instance's scope and receives two arguments - the node and a boolean c
 		 * @return {Boolean}
-		 * @trigger load_node.jstree
+		 * @trigger unload_node.jstree
 		 */
-		load_node : function (obj, callback) {
+		unload_node : function (obj, callback, skip_trigger) {
 			var k, l, i, j, c;
-			if($.isArray(obj)) {
-				this._load_nodes(obj.slice(), callback);
-				return true;
-			}
-			obj = this.get_node(obj);
 			if(!obj) {
 				if(callback) { callback.call(this, obj, false); }
 				return false;
 			}
-			// if(obj.state.loading) { } // the node is already loading - just wait for it to load and invoke callback? but if called implicitly it should be loaded again?
 			if(obj.state.loaded) {
 				obj.state.loaded = false;
 				for(i = 0, j = obj.parents.length; i < j; i++) {
@@ -1288,10 +1282,44 @@
 				}
 				obj.children = [];
 				obj.children_d = [];
-				if(c) {
+				if(c && !skip_trigger) {
+					this.trigger('changed', { 'action' : 'unload_node', 'node' : obj, 'selected' : this._data.core.selected });
+				}
+			};
+			obj.state.failed = false;
+			if(!skip_trigger){
+				this.trigger('unload_node', { "node" : obj});
+			}
+			if(callback) {
+				callback.call(this, obj, c);
+			}
+			return true;
+		},
+		/**
+		 * loads a node (fetches its children using the `core.data` setting). Multiple nodes can be passed to by using an array.
+		 * @name load_node(obj [, callback])
+		 * @param  {mixed} obj
+		 * @param  {function} callback a function to be executed once loading is complete, the function is executed in the instance's scope and receives two arguments - the node and a boolean status
+		 * @return {Boolean}
+		 * @trigger load_node.jstree
+		 */
+		load_node : function (obj, callback) {
+			var k, l, i, j;
+			if($.isArray(obj)) {
+				this._load_nodes(obj.slice(), callback);
+				return true;
+			}
+			obj = this.get_node(obj);
+			if(!obj) {
+				if(callback) { callback.call(this, obj, false); }
+				return false;
+			}
+			// if(obj.state.loading) { } // the node is already loading - just wait for it to load and invoke callback? but if called implicitly it should be loaded again?
+			this.unload_node(obj, function(node, c){
+			    if(c) {
 					this.trigger('changed', { 'action' : 'load_node', 'node' : obj, 'selected' : this._data.core.selected });
 				}
-			}
+			}, true)
 			obj.state.failed = false;
 			obj.state.loading = true;
 			this.get_node(obj, true).addClass("jstree-loading").attr('aria-busy',true);
